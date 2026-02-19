@@ -12,5 +12,5 @@ env/
 .local/
 .cache/
 
-# Database files (if you want to keep them local only, un-comment if needed)
-# *.db
+# Database files
+*.db

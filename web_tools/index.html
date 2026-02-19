@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeroBot Link Revealer</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-color: #161b22;
+            --accent-color: #58a6ff;
+            --text-color: #c9d1d9;
+            --success-color: #2ea043;
+            --error-color: #da3633;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            background: var(--card-color);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            width: 400px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        h1 {
+            color: #fff;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            box-sizing: border-box;
+            background-color: #0d1117;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.1s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #409eff;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            word-break: break-all;
+            animation: fadeIn 0.5s;
+        }
+
+        .success {
+            background-color: rgba(46, 160, 67, 0.2);
+            border: 1px solid var(--success-color);
+            color: #7ee787;
+        }
+
+        .error {
+            background-color: rgba(218, 54, 51, 0.2);
+            border: 1px solid var(--error-color);
+            color: #f85149;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, .3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: -4px;
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>🔍 Link Revealer</h1>
+        <div class="input-group">
+            <input type="text" id="urlInput" placeholder="Pega el link corto aquí (bit.ly, etc)...">
+        </div>
+        <button onclick="unshorten()" id="btnAction">
+            <span class="btn-text">Revelar Link</span>
+            <div class="loading"></div>
+        </button>
+
+        <div id="result"></div>
+
+        <div class="footer">
+            Powered by Unshorten.me API
+            <br>
+            <a href="#" id="openSettings" style="color: #58a6ff; text-decoration: none;">⚙️ Configurar Webhook</a>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal"
+        style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+        <div class="container" style="width: 300px; position: relative;">
+            <span id="closeSettings"
+                style="position: absolute; top: 10px; right: 15px; cursor: pointer; font-size: 20px;">&times;</span>
+            <h2 style="color: white; margin-top: 0;">⚙️ Configuración</h2>
+
+            <label style="font-size: 12px; color: #8b949e; display:block; text-align:left; margin-bottom:5px;">Webhook
+                URL:</label>
+            <input type="text" id="webhookInput" placeholder="https://discord.com/api/webhooks/..."
+                style="width: 100%; padding: 8px; margin-bottom: 10px;">
+
+            <label style="font-size: 12px; color: #8b949e; display:block; text-align:left; margin-bottom:5px;">Tu ID de
+                Usuario (Opcional):</label>
+            <input type="text" id="userIdInput" placeholder="Ej: 852601581790822411"
+                style="width: 100%; padding: 8px; margin-bottom: 15px;">
+
+            <button onclick="saveSettings()">Guardar</button>
+        </div>
+    </div>
+
+    <script>
+        // Load Settings
+        const webhookKey = "zerobot_webhook_url";
+        const userIdKey = "zerobot_user_id";
+
+        let webhookUrl = localStorage.getItem(webhookKey) || "";
+        let targetUserId = localStorage.getItem(userIdKey) || "";
+
+        document.getElementById('openSettings').onclick = function () {
+            document.getElementById('settingsModal').style.display = 'flex';
+            document.getElementById('webhookInput').value = webhookUrl;
+            document.getElementById('userIdInput').value = targetUserId;
+        };
+
+        document.getElementById('closeSettings').onclick = function () {
+            document.getElementById('settingsModal').style.display = 'none';
+        };
+
+        function saveSettings() {
+            const val = document.getElementById('webhookInput').value.trim();
+            const uid = document.getElementById('userIdInput').value.trim();
+
+            if (val) {
+                localStorage.setItem(webhookKey, val);
+                webhookUrl = val;
+            } else {
+                localStorage.removeItem(webhookKey);
+                webhookUrl = "";
+            }
+
+            if (uid) {
+                localStorage.setItem(userIdKey, uid);
+                targetUserId = uid;
+            } else {
+                localStorage.removeItem(userIdKey);
+                targetUserId = "";
+            }
+
+            alert("Configuración Guardada ✅");
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        async function sendToWebhook(original, resolved) {
+            if (!webhookUrl) return;
+
+            try {
+                // Obfuscate link using Base64 so it's not clickable in the channel
+                const encodedLink = btoa(resolved);
+
+                let content = `[LINK_BYPASS]\n**Destino (Enc):** ||${encodedLink}||`;
+
+                // Add User ID if configured
+                if (targetUserId) {
+                    content += `\n**User:** ${targetUserId}`;
+                }
+
+                const payload = { content: content };
+
+                await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                console.log("Sent to webhook");
+            } catch (e) {
+                console.error("Webhook failed", e);
+            }
+        }
+
+        async function unshorten() {
+            const input = document.getElementById('urlInput');
+            const resultDiv = document.getElementById('result');
+            const btn = document.getElementById('btnAction');
+            const loader = document.querySelector('.loading');
+            const btnText = document.querySelector('.btn-text');
+
+            const url = input.value.trim();
+
+            if (!url) {
+                showResult("Por favor ingresa un link.", "error");
+                return;
+            }
+
+            // UI Loading State
+            btn.disabled = true;
+            loader.style.display = 'inline-block';
+            btnText.style.display = 'none';
+            resultDiv.style.display = 'none';
+
+            let finalUrl = "";
+
+            // 1. Check Linkvertise Local
+            if (url.includes("linkvertise.com") && url.includes("?r=")) {
+                try {
+                    let b64 = url.split("?r=")[1].split("&")[0];
+                    b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+                    while (b64.length % 4) { b64 += '='; }
+                    finalUrl = decodeURIComponent(escape(atob(b64)));
+
+                    showResult(`✅ Linkvertise Bypassed (Local):<br><a href="${finalUrl}" target="_blank" style="color:#58a6ff">${finalUrl}</a>`, "success");
+                    sendToWebhook(url, finalUrl);
+
+                    btn.disabled = false;
+                    loader.style.display = 'none';
+                    btnText.style.display = 'inline';
+                    return;
+                } catch (e) { console.log(e); }
+            }
+
+            // 2. API Fallback
+            try {
+                const apiUrl = `https://unshorten.me/json/${url}`;
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (data.success && data.resolved_url) {
+                    finalUrl = data.resolved_url;
+                    showResult(`✅ Link Real:<br><a href="${finalUrl}" target="_blank" style="color:#58a6ff">${finalUrl}</a>`, "success");
+                    sendToWebhook(url, finalUrl);
+                } else if (data.resolved_url && data.resolved_url !== url) {
+                    finalUrl = data.resolved_url;
+                    showResult(`✅ Link Real:<br><a href="${finalUrl}" target="_blank" style="color:#58a6ff">${finalUrl}</a>`, "success");
+                    sendToWebhook(url, finalUrl);
+                } else {
+                    showResult(`❌ No se pudo resolver o ya es el link final.`, "error");
+                }
+            } catch (error) {
+                console.error(error);
+                showResult("❌ Error de Red / CORS. Intenta de nuevo.", "error");
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+                btnText.style.display = 'inline';
+            }
+        }
+
+        function showResult(html, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = html;
+            resultDiv.className = type;
+            resultDiv.style.display = 'block';
+        }
+
+        // Allow Enter key
+        document.getElementById("urlInput").addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                unshorten();
+            }
+        });
+    </script>
+
+</body>
+
+</html>

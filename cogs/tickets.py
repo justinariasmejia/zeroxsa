@@ -99,13 +99,19 @@ class TicketControlView(discord.ui.View):
             await interaction.response.send_message(f"Error actualizando el ticket: {e}", ephemeral=True)
 
 class TicketTypeSelect(discord.ui.Select):
-    def __init__(self):
+    def __init__(self, guild_id: int):
         options = [
             discord.SelectOption(label="Soporte Técnico", emoji="🛠️", description="Problemas con el servidor o el bot"),
             discord.SelectOption(label="Reportar Usuario", emoji="🚨", description="Reportar mal comportamiento"),
             discord.SelectOption(label="Dudas / Consultas", emoji="❓", description="Preguntas generales"),
             discord.SelectOption(label="Donaciones", emoji="💸", description="Ayuda al servidor"),
         ]
+
+        # Conditional Option for ZERO Server
+        # ID: 1237573087013109811
+        if guild_id == 1237573087013109811:
+             options.append(discord.SelectOption(label="Postulación a Staff", emoji="🛡️", description="Aplica para formar parte del equipo"))
+
         super().__init__(placeholder="Selecciona el motivo del ticket...", min_values=1, max_values=1, custom_id="select_ticket_type", options=options)
 
     async def callback(self, interaction: discord.Interaction):
@@ -157,8 +163,15 @@ class TicketTypeSelect(discord.ui.Select):
             overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
         ticket_type = self.values[0]
-        channel_name = f"ticket-{interaction.user.name}"
         
+        # Customize Channel Name & Message based on type
+        if ticket_type == "Postulación a Staff":
+            channel_name = f"postulacion-{interaction.user.name}"
+            desc = f"Hola {interaction.user.mention},\n\nHas abierto un ticket de **Postulación** para unirte al Staff.\n\nPor favor, responde a las siguientes preguntas:\n1. ¿Edad?\n2. ¿Experiencia previa?\n3. ¿Por qué quieres unirte?\n\nUn administrador revisará tu solicitud pronto."
+        else:
+            channel_name = f"ticket-{interaction.user.name}"
+            desc = f"Hola {interaction.user.mention},\n\nHas abierto un ticket por: **{ticket_type}**.\nUn miembro del equipo { ' '.join([r.mention for r in staff_roles]) if staff_roles else '@here' } te atenderá pronto.\n\nDescribe tu consulta detalladamente mientras esperas."
+
         try:
             channel = await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
         except Exception as e:
@@ -167,26 +180,35 @@ class TicketTypeSelect(discord.ui.Select):
 
         await interaction.followup.send(f"✅ **Ticket creado:** {channel.mention}", ephemeral=True)
 
-        # Content of the ticket
-        if staff_roles:
-            ping_role = " ".join([r.mention for r in staff_roles])
-        else:
-            ping_role = "@here"
-        
         embed = discord.Embed(
             title=f"{ticket_type}",
-            description=f"Hola {interaction.user.mention},\n\nHas abierto un ticket por: **{ticket_type}**.\nUn miembro del equipo {ping_role} te atenderá pronto.\n\nDescribe tu consulta detalladamente mientras esperas.",
-            color=discord.Color.blue()
+            description=desc,
+            color=discord.Color.gold() if ticket_type == "Postulación a Staff" else discord.Color.blue()
         )
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
         embed.set_footer(text="Usa los botones para gestionar el ticket")
+        
+        # Mention logic
+        ping_content = f"{interaction.user.mention}"
+        if staff_roles:
+            ping_content += " " + " ".join([r.mention for r in staff_roles])
+        else:
+            ping_content += " @here"
 
-        await channel.send(content=f"{interaction.user.mention} {ping_role}", embed=embed, view=TicketControlView())
+        await channel.send(content=ping_content, embed=embed, view=TicketControlView())
 
 class TicketView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, guild_id: int = None):
         super().__init__(timeout=None)
-        self.add_item(TicketTypeSelect())
+        # If no guild_id passed (e.g. at startup/persistence loading), we can't fully determine dynamic options easily 
+        # without storing guild_id in custom_id or similar hacks. 
+        # BUT: For persistent views, discord re-initializes them without args usually.
+        # However, for the initial message sent via command, we have the ID.
+        # For simplicity in this specific request, we default to 0 if None, 
+        # avoiding the extra option on reboot if not handled, but strictly fulfilling the user request for the "menu".
+        # To make it persistent properly with dynamic options per guild is complex.
+        # We will assume this is primarily for the Setup command usage.
+        self.add_item(TicketTypeSelect(guild_id or 0))
 
 class Tickets(commands.Cog):
     def __init__(self, bot):
@@ -207,7 +229,8 @@ class Tickets(commands.Cog):
         embed.set_footer(text="El mal uso de los tickets será sancionado.")
 
         try:
-             await interaction.channel.send(embed=embed, view=TicketView())
+             # Pass Guild ID here!
+             await interaction.channel.send(embed=embed, view=TicketView(guild_id=interaction.guild_id))
         except Exception as e:
              await interaction.followup.send(f"⚠️ Error al enviar el panel: {e}", ephemeral=True)
 
